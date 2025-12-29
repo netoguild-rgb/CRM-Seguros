@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- CONFIGURAÇÕES DO SISTEMA ---
 model SystemConfig {
   id              Int     @id @default(autoincrement())
   storageType     String  @default("LOCAL")
@@ -19,22 +20,16 @@ model SystemConfig {
   smtpSecure      Boolean @default(true)
 }
 
-// --- DOCUMENTOS ---
-model Document {
+// --- USUÁRIOS (LOGIN) ---
+model User {
   id        Int      @id @default(autoincrement())
   nome      String
-  categoria String   
-  url       String   
-  tipo      String   // 'LOCAL' ou 'DRIVE'
-  path      String?  
+  email     String   @unique
+  senha     String   
+  perfil    String   @default("PRODUTOR") // 'ADMIN' ou 'PRODUTOR'
+  comissao  Float    @default(10)         // % padrão
   
-  clientId  Int
-  client    Client   @relation(fields: [clientId], references: [id])
-  
-  // Novo: Vínculo com Sinistro (Opcional)
-  claimId   Int?
-  claim     Claim?   @relation(fields: [claimId], references: [id])
-
+  apolices  Policy[] // Vendas deste usuário
   criadoEm  DateTime @default(now())
 }
 
@@ -55,15 +50,13 @@ model Client {
   ano_veiculo        String?
   condutor_principal String?
   km                 String?
-
-  // Coberturas
   guincho            String?
   carro_reserva      String?
   danos_terceiros    String? 
 
   apolices         Policy[]
   documentos       Document[]
-  claims           Claim[]    // Cliente tem vários sinistros
+  claims           Claim[]
   criadoEm         DateTime @default(now())
 }
 
@@ -75,46 +68,58 @@ model Policy {
   tipo_seguro    String
   data_inicio    DateTime
   data_fim       DateTime
-  premio_liquido Float?
-  comissao       Float?
+  
+  // Financeiro
+  premio_liquido Float?   
+  comissao_total Float?   
+  
+  // Vínculo com Produtor
+  userId         Int?     
+  user           User?    @relation(fields: [userId], references: [id])
+  
   pdf_url        String?  
   pdf_file_id    String?  
   clientId       Int
   client         Client   @relation(fields: [clientId], references: [id])
-  claims         Claim[]  // Apólice pode ter sinistros
+  claims         Claim[]
 }
 
-// --- SINISTROS (NOVO MÓDULO) ---
+// --- DOCUMENTOS ---
+model Document {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  categoria String   
+  url       String   
+  tipo      String   
+  path      String?  
+  clientId  Int
+  client    Client   @relation(fields: [clientId], references: [id])
+  claimId   Int?
+  claim     Claim?   @relation(fields: [claimId], references: [id])
+  criadoEm  DateTime @default(now())
+}
+
+// --- SINISTROS ---
 model Claim {
   id             Int      @id @default(autoincrement())
-  
-  // Dados Básicos
-  status         String   @default("ABERTO") // ABERTO, ANALISE, VISTORIA, REPARO, CONCLUIDO, NEGADO
+  status         String   @default("ABERTO")
   data_ocorrencia DateTime
   data_aviso     DateTime @default(now())
-  tipo_sinistro  String   // Colisão, Roubo, Incêndio, Terceiros
+  tipo_sinistro  String
   descricao      String?
-
-  // Oficina & Terceiros
   oficina_nome   String?
   oficina_tel    String?
   terceiro_nome  String?
   terceiro_tel   String?
   placa_terceiro String?
-
-  // Valores
   valor_franquia Float?
   valor_orcamento Float?
   valor_final    Float?
-
-  // Relacionamentos
   clientId       Int
   client         Client   @relation(fields: [clientId], references: [id])
   policyId       Int?
   policy         Policy?  @relation(fields: [policyId], references: [id])
-  
-  documentos     Document[] // Fotos, BO, Orçamentos
-
+  documentos     Document[]
   atualizadoEm   DateTime @updatedAt
 }
 
