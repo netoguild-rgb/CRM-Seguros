@@ -4,12 +4,13 @@ import axios from 'axios';
 import { 
   LayoutDashboard, Users, FileText, Settings, Cloud, Plus, Search, 
   User, Bell, CheckCircle, Bot, Copy, ChevronRight, Car, Shield, AlertTriangle,
-  Calendar, DollarSign, Download, Filter, FileCheck, X, Folder, Mail, HardDrive, Upload
+  Calendar, DollarSign, Download, Filter, FileCheck, X, Folder, Mail, HardDrive, Upload,
+  AlertOctagon, Wrench, Activity, Camera
 } from 'lucide-react';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, BarController } from 'chart.js';
+import { Doughnut, Bar } from 'react-chartjs-2';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, BarController);
 
 const API_URL = window.location.hostname === 'localhost' 
   ? 'http://localhost:3000' 
@@ -29,236 +30,277 @@ const SidebarItem = ({ to, icon: Icon, label }) => {
   );
 };
 
-// --- CLIENTES COM GESTÃO DE ARQUIVOS ---
-const Clients = () => {
-  const [clients, setClients] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [filesModalOpen, setFilesModalOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [clientDocs, setClientDocs] = useState([]);
-  
-  // Form Cliente
-  const [form, setForm] = useState({ nome: '', whatsapp: '', email: '', tipo: 'PF', renavam: '', modelo_veiculo: '', ano_veiculo: '', condutor_principal: '', km: '', guincho: '', carro_reserva: '', danos_terceiros: '' });
-  
-  // Form Upload Arquivo
-  const [docForm, setDocForm] = useState({ nome: '', categoria: 'Documentos Pessoais' });
-  const [docFile, setDocFile] = useState(null);
-
-  useEffect(() => { loadClients(); }, []);
-
-  const loadClients = async () => { try { const res = await api.get('/clients'); setClients(res.data); } catch(e){} };
-  
-  const openFiles = async (client) => {
-      setSelectedClient(client);
-      setFilesModalOpen(true);
-      loadDocs(client.id);
-  };
-
-  const loadDocs = async (id) => {
-      try { const res = await api.get(`/clients/${id}/documents`); setClientDocs(res.data); } catch(e){}
-  };
-
-  const handleSaveClient = async (e) => {
-    e.preventDefault();
-    await api.post('/clients', form);
-    setModalOpen(false); loadClients();
-  };
-
-  const handleUploadDoc = async (e) => {
-      e.preventDefault();
-      if(!docFile) return alert("Selecione um arquivo");
-      const data = new FormData();
-      data.append('nome', docForm.nome);
-      data.append('categoria', docForm.categoria);
-      data.append('clientId', selectedClient.id);
-      data.append('file', docFile);
-
-      try {
-          await api.post('/documents', data);
-          alert("Arquivo salvo!");
-          setDocFile(null); setDocForm({nome:'', categoria:'Documentos Pessoais'});
-          loadDocs(selectedClient.id);
-      } catch(e) { alert("Erro no upload"); }
-  };
-
-  const handleSendEmail = async (docId) => {
-      if(!confirm("Enviar este documento por e-mail para o cliente?")) return;
-      try {
-          await api.post(`/documents/${docId}/send-email`);
-          alert("E-mail enviado com sucesso!");
-      } catch(e) { alert("Erro ao enviar e-mail. Verifique a configuração SMTP."); }
-  };
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800">Carteira de Clientes</h2>
-        <button onClick={() => setModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg flex items-center gap-2">
-          <Plus size={20}/> Novo Cliente
-        </button>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500">
-            <tr><th className="p-5">Nome</th><th className="p-5">Contato</th><th className="p-5 text-center">Ações</th></tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {clients.map(c => (
-              <tr key={c.id} className="hover:bg-slate-50 transition">
-                <td className="p-5 font-bold text-slate-700">{c.nome}</td>
-                <td className="p-5 text-sm">{c.email} <br/><span className="text-slate-400">{c.whatsapp}</span></td>
-                <td className="p-5 text-center">
-                    <button onClick={() => openFiles(c)} className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg text-sm font-bold flex items-center justify-center gap-2 mx-auto border border-blue-200">
-                        <Folder size={16}/> Arquivos
-                    </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* MODAL ARQUIVOS DO CLIENTE */}
-      {filesModalOpen && selectedClient && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-fade-in">
-              <div className="bg-white p-8 rounded-2xl w-full max-w-4xl shadow-2xl h-[80vh] flex flex-col">
-                  <div className="flex justify-between items-center border-b pb-4 mb-4">
-                      <div>
-                          <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2"><Folder className="text-orange-500"/> Área de Arquivos</h3>
-                          <p className="text-sm text-slate-500">Cliente: <b>{selectedClient.nome}</b></p>
-                      </div>
-                      <button onClick={()=>setFilesModalOpen(false)}><X/></button>
-                  </div>
-
-                  <div className="flex gap-6 h-full overflow-hidden">
-                      {/* Lado Esquerdo: Upload */}
-                      <div className="w-1/3 border-r pr-6 flex flex-col gap-4">
-                          <h4 className="font-bold text-sm uppercase text-slate-500">Novo Arquivo</h4>
-                          <form onSubmit={handleUploadDoc} className="space-y-4">
-                              <input placeholder="Nome do Arquivo" className="input-field" value={docForm.nome} onChange={e=>setDocForm({...docForm, nome:e.target.value})} required/>
-                              <select className="input-field bg-white" value={docForm.categoria} onChange={e=>setDocForm({...docForm, categoria:e.target.value})}>
-                                  <option>Documentos Pessoais</option>
-                                  <option>Contratos</option>
-                                  <option>Vistorias</option>
-                                  <option>Sinistros</option>
-                                  <option>Outros</option>
-                              </select>
-                              <div className="border-2 border-dashed border-slate-200 p-4 rounded-xl text-center cursor-pointer hover:bg-slate-50 relative">
-                                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e=>setDocFile(e.target.files[0])}/>
-                                  <Upload className="mx-auto text-slate-400 mb-2"/>
-                                  <p className="text-xs text-slate-500">{docFile ? docFile.name : "Clique para selecionar"}</p>
-                              </div>
-                              <button type="submit" className="w-full bg-slate-800 text-white py-2 rounded-xl font-bold hover:bg-slate-900">Salvar Arquivo</button>
-                          </form>
-                      </div>
-
-                      {/* Lado Direito: Lista */}
-                      <div className="w-2/3 overflow-y-auto pr-2">
-                          <h4 className="font-bold text-sm uppercase text-slate-500 mb-4">Arquivos Armazenados</h4>
-                          <div className="space-y-3">
-                              {clientDocs.map(doc => (
-                                  <div key={doc.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:shadow-md transition">
-                                      <div className="flex items-center gap-3">
-                                          <div className="p-2 bg-white rounded-lg border border-slate-200">
-                                              <FileText size={20} className="text-orange-500"/>
-                                          </div>
-                                          <div>
-                                              <p className="font-bold text-slate-700">{doc.nome}</p>
-                                              <p className="text-xs text-slate-400">{doc.categoria} • {new Date(doc.criadoEm).toLocaleDateString()}</p>
-                                          </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                          <a href={doc.url} target="_blank" className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Baixar">
-                                              <Download size={18}/>
-                                          </a>
-                                          <button onClick={()=>handleSendEmail(doc.id)} className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg" title="Enviar por E-mail">
-                                              <Mail size={18}/>
-                                          </button>
-                                      </div>
-                                  </div>
-                              ))}
-                              {clientDocs.length === 0 && <p className="text-center text-slate-400 py-10">Nenhum arquivo encontrado.</p>}
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* Modal Novo Cliente (Oculto para brevidade, usar o mesmo de antes) */}
-      {modalOpen && <div className="fixed inset-0 bg-black/50 flex justify-center items-center"><div className="bg-white p-6 rounded">Use o código anterior para este modal</div><button onClick={()=>setModalOpen(false)}>Fechar</button></div>}
-    </div>
-  );
+const StatusBadge = ({ status }) => {
+    const colors = {
+        'ABERTO': 'bg-blue-100 text-blue-700',
+        'ANALISE': 'bg-yellow-100 text-yellow-700',
+        'VISTORIA': 'bg-purple-100 text-purple-700',
+        'REPARO': 'bg-orange-100 text-orange-700',
+        'CONCLUIDO': 'bg-green-100 text-green-700',
+        'NEGADO': 'bg-red-100 text-red-700'
+    };
+    return <span className={`px-2 py-1 rounded text-xs font-bold ${colors[status] || 'bg-gray-100'}`}>{status}</span>;
 };
 
-// --- INTEGRAÇÕES (NOVA) ---
-const Integrations = () => {
-    const [config, setConfig] = useState({ storageType: 'LOCAL', smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', googleFolderId: '', googleDriveJson: '' });
-    
-    useEffect(() => {
-        api.get('/config').then(res => { if(res.data) setConfig({...config, ...res.data, googleDriveJson: JSON.stringify(res.data.googleDriveJson || {}, null, 2)}); });
-    }, []);
+// --- SINISTROS (NOVA ABA) ---
+const Claims = () => {
+    const [claims, setClaims] = useState([]);
+    const [clients, setClients] = useState([]);
+    const [stats, setStats] = useState({ total: 0, abertos: 0, concluidos: 0, labels: [], data: [] });
+    const [modalOpen, setModalOpen] = useState(false);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [selectedClaim, setSelectedClaim] = useState(null);
 
-    const save = async () => {
-        try { await api.post('/config', config); alert("Configurações Salvas!"); } catch(e) { alert("Erro ao salvar"); }
+    // Form Sinistro
+    const initialForm = { 
+        clientId: '', status: 'ABERTO', tipo_sinistro: 'Colisão', data_ocorrencia: '', descricao: '',
+        oficina_nome: '', oficina_tel: '', terceiro_nome: '', terceiro_tel: '', placa_terceiro: '',
+        valor_franquia: '', valor_orcamento: ''
+    };
+    const [form, setForm] = useState(initialForm);
+    
+    // Upload no Sinistro
+    const [file, setFile] = useState(null);
+
+    useEffect(() => { loadData(); }, []);
+
+    const loadData = async () => {
+        try {
+            const [c, cli, s] = await Promise.all([
+                api.get('/claims'), api.get('/clients'), api.get('/claims-stats')
+            ]);
+            setClaims(c.data); setClients(cli.data); setStats(s.data);
+        } catch(e) {}
+    };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        try { await api.post('/claims', form); setModalOpen(false); setForm(initialForm); loadData(); alert("Sinistro Aberto!"); } 
+        catch(e) { alert("Erro ao salvar"); }
+    };
+
+    const handleUpload = async () => {
+        if(!file || !selectedClaim) return;
+        const data = new FormData();
+        data.append('file', file);
+        data.append('nome', 'Doc Sinistro');
+        data.append('categoria', 'Sinistro');
+        data.append('clientId', selectedClaim.clientId);
+        data.append('claimId', selectedClaim.id); // Vínculo importante
+
+        try { await api.post('/documents', data); alert("Arquivo anexado!"); setFile(null); } 
+        catch(e) { alert("Erro upload"); }
+    };
+
+    const updateStatus = async (id, newStatus) => {
+        await api.put(`/claims/${id}`, { status: newStatus });
+        loadData();
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-slate-800">Integrações & Sistema</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Cartão Armazenamento */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><HardDrive className="text-orange-500"/> Armazenamento</h3>
-                    <div className="space-y-4">
-                        <label className="block text-sm font-bold text-slate-600">Onde salvar os arquivos?</label>
-                        <div className="flex gap-4">
-                            <button onClick={()=>setConfig({...config, storageType:'LOCAL'})} className={`flex-1 py-3 rounded-xl border font-bold ${config.storageType==='LOCAL' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'}`}>
-                                Local (PC)
-                            </button>
-                            <button onClick={()=>setConfig({...config, storageType:'DRIVE'})} className={`flex-1 py-3 rounded-xl border font-bold ${config.storageType==='DRIVE' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>
-                                Google Drive
-                            </button>
-                        </div>
-                        
-                        {config.storageType === 'DRIVE' && (
-                            <div className="space-y-3 pt-4 border-t animate-fade-in">
-                                <input placeholder="ID da Pasta do Drive" className="input-field" value={config.googleFolderId} onChange={e=>setConfig({...config, googleFolderId:e.target.value})}/>
-                                <textarea placeholder="JSON de Credenciais" className="input-field h-24 text-xs font-mono" value={config.googleDriveJson} onChange={e=>setConfig({...config, googleDriveJson:e.target.value})}/>
-                            </div>
-                        )}
-                        {config.storageType === 'LOCAL' && (
-                            <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-lg">Os arquivos serão salvos na pasta <b>/uploads</b> dentro do servidor.</p>
-                        )}
-                    </div>
+        <div className="space-y-8 animate-fade-in">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Acompanhamento de Sinistros</h2>
+                    <p className="text-slate-500">Controle completo de ocorrências, oficinas e terceiros.</p>
                 </div>
+                <button onClick={() => setModalOpen(true)} className="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-red-500/20 flex items-center gap-2">
+                    <AlertTriangle size={20}/> Abrir Sinistro
+                </button>
+            </div>
 
-                {/* Cartão E-mail */}
+            {/* KPIs */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                    <div className="p-4 bg-blue-50 text-blue-600 rounded-xl"><Activity size={24}/></div>
+                    <div><h3 className="text-2xl font-bold text-slate-800">{stats.abertos}</h3><p className="text-xs text-slate-400 uppercase font-bold">Em Andamento</p></div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                    <div className="p-4 bg-green-50 text-green-600 rounded-xl"><CheckCircle size={24}/></div>
+                    <div><h3 className="text-2xl font-bold text-slate-800">{stats.concluidos}</h3><p className="text-xs text-slate-400 uppercase font-bold">Finalizados</p></div>
+                </div>
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Mail className="text-orange-500"/> Servidor de E-mail (SMTP)</h3>
-                    <div className="space-y-3">
-                        <input placeholder="Host SMTP (Ex: smtp.gmail.com)" className="input-field" value={config.smtpHost} onChange={e=>setConfig({...config, smtpHost:e.target.value})}/>
-                        <div className="grid grid-cols-2 gap-3">
-                            <input placeholder="Porta (587)" type="number" className="input-field" value={config.smtpPort} onChange={e=>setConfig({...config, smtpPort:e.target.value})}/>
-                            <input placeholder="Usuário/Email" className="input-field" value={config.smtpUser} onChange={e=>setConfig({...config, smtpUser:e.target.value})}/>
-                        </div>
-                        <input placeholder="Senha do App" type="password" className="input-field" value={config.smtpPass} onChange={e=>setConfig({...config, smtpPass:e.target.value})}/>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Sinistros por Período</h4>
+                    <div className="h-16">
+                        <Bar data={{
+                            labels: stats.labels,
+                            datasets: [{ label: 'Qtd', data: stats.data, backgroundColor: '#f87171', borderRadius: 4 }]
+                        }} options={{ maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { x: {display:false}, y: {display:false} } }} />
                     </div>
                 </div>
             </div>
-            
-            <button onClick={save} className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95">Salvar Todas as Configurações</button>
+
+            {/* Lista de Sinistros */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500">
+                        <tr><th className="p-5">Sinistro / Tipo</th><th className="p-5">Cliente</th><th className="p-5">Oficina</th><th className="p-5">Status</th><th className="p-5 text-center">Ações</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {claims.map(c => (
+                            <tr key={c.id} className="hover:bg-slate-50 transition cursor-pointer" onClick={() => { setSelectedClaim(c); setDetailsOpen(true); }}>
+                                <td className="p-5">
+                                    <div className="font-bold text-slate-800 flex items-center gap-2"><Car size={16} className="text-slate-400"/> {c.tipo_sinistro}</div>
+                                    <div className="text-xs text-slate-400">{new Date(c.data_ocorrencia).toLocaleDateString()}</div>
+                                </td>
+                                <td className="p-5"><span className="font-medium text-slate-700">{c.client.nome}</span></td>
+                                <td className="p-5 text-sm">{c.oficina_nome || '-'}</td>
+                                <td className="p-5"><StatusBadge status={c.status}/></td>
+                                <td className="p-5 text-center"><button className="text-blue-600 font-bold text-sm hover:underline">Detalhes</button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* MODAL DETALHES & ACOMPANHAMENTO */}
+            {detailsOpen && selectedClaim && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-fade-in">
+                    <div className="bg-white p-8 rounded-2xl w-full max-w-4xl shadow-2xl h-[85vh] overflow-y-auto">
+                        <div className="flex justify-between items-center border-b pb-4 mb-6">
+                            <div>
+                                <h3 className="font-bold text-2xl text-slate-800 flex items-center gap-2">
+                                    <AlertOctagon className="text-red-500"/> Sinistro #{selectedClaim.id}
+                                </h3>
+                                <p className="text-sm text-slate-500">Cliente: <b>{selectedClaim.client.nome}</b></p>
+                            </div>
+                            <button onClick={()=>setDetailsOpen(false)} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200"><X/></button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            {/* Coluna 1: Status e Dados */}
+                            <div className="space-y-6 col-span-2">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <h4 className="font-bold text-sm text-slate-500 uppercase mb-4">Atualizar Etapa</h4>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {['ABERTO','ANALISE','VISTORIA','REPARO','CONCLUIDO'].map(s => (
+                                            <button key={s} onClick={()=>updateStatus(selectedClaim.id, s)} 
+                                                className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors 
+                                                ${selectedClaim.status === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 hover:bg-slate-200'}`}>
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white border p-4 rounded-xl">
+                                        <h4 className="flex items-center gap-2 font-bold text-slate-700 mb-2"><Wrench size={16}/> Oficina</h4>
+                                        <p className="text-sm">{selectedClaim.oficina_nome || 'Não informada'}</p>
+                                        <p className="text-xs text-slate-400">{selectedClaim.oficina_tel}</p>
+                                    </div>
+                                    <div className="bg-white border p-4 rounded-xl">
+                                        <h4 className="flex items-center gap-2 font-bold text-slate-700 mb-2"><Users size={16}/> Terceiro</h4>
+                                        <p className="text-sm">{selectedClaim.terceiro_nome || 'Sem terceiro'}</p>
+                                        <p className="text-xs text-slate-400">{selectedClaim.placa_terceiro}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-white border p-4 rounded-xl">
+                                    <h4 className="font-bold text-slate-700 mb-2">Descrição do Evento</h4>
+                                    <p className="text-sm text-slate-600 leading-relaxed">{selectedClaim.descricao}</p>
+                                </div>
+                            </div>
+
+                            {/* Coluna 2: Documentos Rápidos */}
+                            <div className="border-l pl-8 space-y-6">
+                                <h4 className="font-bold text-sm uppercase text-slate-500 flex items-center gap-2"><Camera size={16}/> Fotos & Docs</h4>
+                                
+                                <div className="border-2 border-dashed border-slate-200 p-4 rounded-xl text-center hover:bg-slate-50 cursor-pointer relative">
+                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => setFile(e.target.files[0])} />
+                                    <Upload className="mx-auto text-slate-300 mb-2"/>
+                                    <p className="text-xs text-slate-500 font-bold">{file ? file.name : "Anexar Arquivo"}</p>
+                                </div>
+                                {file && <button onClick={handleUpload} className="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded-lg">Enviar Agora</button>}
+
+                                <div className="space-y-2">
+                                    <p className="text-xs text-slate-400">Documentos recentes do cliente:</p>
+                                    {/* Aqui você poderia listar os docs filtrados pelo claimId se quiser */}
+                                    <button className="text-xs text-blue-600 font-bold hover:underline">Ver todos na pasta do cliente</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL NOVO SINISTRO */}
+            {modalOpen && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-fade-in">
+                    <form onSubmit={handleSave} className="bg-white p-8 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center border-b pb-4 mb-6">
+                            <h3 className="font-bold text-xl text-slate-800">Abertura de Sinistro</h3>
+                            <button type="button" onClick={()=>setModalOpen(false)}><X/></button>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="label-text">Cliente</label>
+                                    <select className="input-field bg-white" onChange={e => setForm({...form, clientId: e.target.value})} required>
+                                        <option value="">Selecione...</option>
+                                        {clients.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="label-text">Data Ocorrência</label>
+                                    <input type="date" className="input-field" onChange={e => setForm({...form, data_ocorrencia: e.target.value})} required/>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="label-text">Tipo e Descrição</label>
+                                <div className="flex gap-4">
+                                    <select className="input-field bg-white w-1/3" onChange={e => setForm({...form, tipo_sinistro: e.target.value})}>
+                                        <option>Colisão</option><option>Roubo/Furto</option><option>Incêndio</option><option>Vidros</option><option>Terceiros</option>
+                                    </select>
+                                    <input placeholder="Descrição breve do ocorrido..." className="input-field flex-1" onChange={e => setForm({...form, descricao: e.target.value})}/>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-50">
+                                <div>
+                                    <h4 className="text-xs font-bold text-orange-500 uppercase mb-2">Dados da Oficina</h4>
+                                    <input placeholder="Nome Oficina" className="input-field mb-2" onChange={e => setForm({...form, oficina_nome: e.target.value})}/>
+                                    <input placeholder="Telefone/Zap" className="input-field" onChange={e => setForm({...form, oficina_tel: e.target.value})}/>
+                                </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-orange-500 uppercase mb-2">Dados Terceiro</h4>
+                                    <input placeholder="Nome Condutor" className="input-field mb-2" onChange={e => setForm({...form, terceiro_nome: e.target.value})}/>
+                                    <div className="flex gap-2">
+                                        <input placeholder="Tel" className="input-field" onChange={e => setForm({...form, terceiro_tel: e.target.value})}/>
+                                        <input placeholder="Placa" className="input-field" onChange={e => setForm({...form, placa_terceiro: e.target.value})}/>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                                <input type="number" placeholder="Franquia (R$)" className="input-field" onChange={e => setForm({...form, valor_franquia: e.target.value})}/>
+                                <input type="number" placeholder="Orçamento Estimado (R$)" className="input-field" onChange={e => setForm({...form, valor_orcamento: e.target.value})}/>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
+                            <button type="button" onClick={()=>setModalOpen(false)} className="btn-secondary">Cancelar</button>
+                            <button type="submit" className="bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg">Confirmar Abertura</button>
+                        </div>
+                    </form>
+                </div>
+            )}
         </div>
     );
 };
 
-// ... Mantenha Dashboard e Policies como no código anterior ou importe-os ...
-// (Para brevidade, assumi que Dashboard e Policies estão ok, foquei nas mudanças pedidas)
+// ... Resto dos componentes (Dashboard, Clients, Policies, Integrations) MANTIDOS IGUAIS ...
+// (Para economizar espaço na resposta, estou omitindo a repetição deles, mas no seu arquivo
+// VOCÊ DEVE MANTER ELES. Vou colocar o Layout final chamando o Claims)
 
-const Dashboard = () => <div className="p-10 text-center text-slate-400">Dashboard Carregado</div>;
-const Policies = () => <div className="p-10 text-center text-slate-400">Apólices Carregado</div>;
+// (Componentes placeholder para ilustrar que devem estar lá)
+const Dashboard = () => <div className="p-10 text-center">Dashboard Carregado (Código anterior)</div>;
+const Clients = () => <div className="p-10 text-center">Clientes Carregado (Código anterior)</div>;
+const Policies = () => <div className="p-10 text-center">Apólices Carregado (Código anterior)</div>;
+const Integrations = () => <div className="p-10 text-center">Integrações Carregado (Código anterior)</div>;
 
 export default function App() {
   return (
@@ -276,6 +318,7 @@ export default function App() {
             <SidebarItem to="/" icon={LayoutDashboard} label="Visão Geral" />
             <SidebarItem to="/clients" icon={Users} label="Carteira Clientes" />
             <SidebarItem to="/policies" icon={FileText} label="Apólices" />
+            <SidebarItem to="/claims" icon={AlertOctagon} label="Sinistros" /> {/* NOVO LINK */}
             <SidebarItem to="/integrations" icon={Settings} label="Integrações" />
           </nav>
         </aside>
@@ -284,11 +327,17 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/clients" element={<Clients />} />
                 <Route path="/policies" element={<Policies />} />
+                <Route path="/claims" element={<Claims />} /> {/* NOVA ROTA */}
                 <Route path="/integrations" element={<Integrations />} />
             </Routes>
         </main>
       </div>
-      <style>{` .input-field { width: 100%; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid #e2e8f0; outline: none; background: #fff; } `}</style>
+      <style>{` 
+        .input-field { width: 100%; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid #e2e8f0; outline: none; background: #fff; } 
+        .btn-secondary { padding: 0.6rem 1.25rem; color: #64748b; font-weight: 500; border-radius: 0.75rem; }
+        .btn-secondary:hover { background-color: #f1f5f9; }
+        .label-text { font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.25rem; display: block; }
+      `}</style>
     </BrowserRouter>
   );
 }

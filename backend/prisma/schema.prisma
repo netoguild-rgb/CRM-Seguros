@@ -7,16 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- CONFIGURAÇÃO DO SISTEMA ---
 model SystemConfig {
   id              Int     @id @default(autoincrement())
-  
-  // Armazenamento
-  storageType     String  @default("LOCAL") // Opções: 'LOCAL' ou 'DRIVE'
+  storageType     String  @default("LOCAL")
   googleDriveJson Json?   
   googleFolderId  String? 
-
-  // E-mail (SMTP)
   smtpHost        String?
   smtpPort        Int?
   smtpUser        String?
@@ -24,17 +19,22 @@ model SystemConfig {
   smtpSecure      Boolean @default(true)
 }
 
-// --- GESTÃO DE DOCUMENTOS (NOVO) ---
+// --- DOCUMENTOS ---
 model Document {
   id        Int      @id @default(autoincrement())
   nome      String
-  categoria String   // Ex: Documentos Pessoais, Apólices, Vistorias
-  url       String   // Caminho local ou Link do Drive
+  categoria String   
+  url       String   
   tipo      String   // 'LOCAL' ou 'DRIVE'
-  path      String?  // Caminho físico (para anexo de email)
+  path      String?  
   
   clientId  Int
   client    Client   @relation(fields: [clientId], references: [id])
+  
+  // Novo: Vínculo com Sinistro (Opcional)
+  claimId   Int?
+  claim     Claim?   @relation(fields: [claimId], references: [id])
+
   criadoEm  DateTime @default(now())
 }
 
@@ -62,7 +62,8 @@ model Client {
   danos_terceiros    String? 
 
   apolices         Policy[]
-  documentos       Document[] // Relação com documentos
+  documentos       Document[]
+  claims           Claim[]    // Cliente tem vários sinistros
   criadoEm         DateTime @default(now())
 }
 
@@ -80,9 +81,44 @@ model Policy {
   pdf_file_id    String?  
   clientId       Int
   client         Client   @relation(fields: [clientId], references: [id])
+  claims         Claim[]  // Apólice pode ter sinistros
 }
 
-// --- LEADS (TYPEBOT) ---
+// --- SINISTROS (NOVO MÓDULO) ---
+model Claim {
+  id             Int      @id @default(autoincrement())
+  
+  // Dados Básicos
+  status         String   @default("ABERTO") // ABERTO, ANALISE, VISTORIA, REPARO, CONCLUIDO, NEGADO
+  data_ocorrencia DateTime
+  data_aviso     DateTime @default(now())
+  tipo_sinistro  String   // Colisão, Roubo, Incêndio, Terceiros
+  descricao      String?
+
+  // Oficina & Terceiros
+  oficina_nome   String?
+  oficina_tel    String?
+  terceiro_nome  String?
+  terceiro_tel   String?
+  placa_terceiro String?
+
+  // Valores
+  valor_franquia Float?
+  valor_orcamento Float?
+  valor_final    Float?
+
+  // Relacionamentos
+  clientId       Int
+  client         Client   @relation(fields: [clientId], references: [id])
+  policyId       Int?
+  policy         Policy?  @relation(fields: [policyId], references: [id])
+  
+  documentos     Document[] // Fotos, BO, Orçamentos
+
+  atualizadoEm   DateTime @updatedAt
+}
+
+// --- LEADS ---
 model Lead {
   id              Int      @id @default(autoincrement())
   criadoEm        DateTime @default(now())
