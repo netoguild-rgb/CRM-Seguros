@@ -1,0 +1,81 @@
+// ARQUIVO: backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- CONFIGURAÇÃO (GOOGLE DRIVE) ---
+model SystemConfig {
+  id              Int     @id @default(autoincrement())
+  googleDriveJson Json?   
+  googleFolderId  String? 
+}
+
+// --- TABELA DE CLIENTES (NOVA) ---
+model Client {
+  id               Int      @id @default(autoincrement())
+  nome             String
+  tipo             String   @default("PF")
+  cpf_cnpj         String?  @unique
+  whatsapp         String?
+  email            String?
+  cidade           String?
+  estado           String?
+  
+  // Dados do Veículo
+  renavam            String?
+  modelo_veiculo     String?
+  ano_veiculo        String?
+  condutor_principal String?
+  km                 String?
+
+  // Coberturas
+  guincho            String?
+  carro_reserva      String?
+  danos_terceiros    String? 
+
+  apolices         Policy[]
+  criadoEm         DateTime @default(now())
+}
+
+// --- TABELA DE APÓLICES (NOVA) ---
+model Policy {
+  id             Int      @id @default(autoincrement())
+  numero         String?
+  status         String   @default("ATIVA")
+  tipo_seguro    String
+  data_inicio    DateTime
+  data_fim       DateTime
+  premio_liquido Float?
+  comissao       Float?
+  pdf_url        String?  
+  pdf_file_id    String?  
+  clientId       Int
+  client         Client   @relation(fields: [clientId], references: [id])
+}
+
+// --- TABELA DE LEADS (MANTIDA ORIGINAL) ---
+model Lead {
+  id              Int      @id @default(autoincrement())
+  criadoEm        DateTime @default(now())
+  
+  nome            String
+  whatsapp        String
+  email           String?
+  cpf             String?
+  status          String   @default("NOVO")
+  
+  // Seus campos personalizados do Typebot
+  tipo_seguro     String?
+  placa           String?
+  modelo_veiculo  String?
+  ano_veiculo     String?
+  uso_veiculo     String?
+  
+  dados_extras    Json?
+}
