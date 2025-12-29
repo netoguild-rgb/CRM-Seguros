@@ -7,10 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- CONFIGURAÇÕES DO SISTEMA ---
+// --- CONFIGURAÇÃO ---
 model SystemConfig {
   id              Int     @id @default(autoincrement())
   storageType     String  @default("LOCAL")
+  localPath       String? 
   googleDriveJson Json?   
   googleFolderId  String? 
   smtpHost        String?
@@ -20,20 +21,20 @@ model SystemConfig {
   smtpSecure      Boolean @default(true)
 }
 
-// --- USUÁRIOS (LOGIN) ---
+// --- USUÁRIOS ---
 model User {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  email     String   @unique
-  senha     String   
-  perfil    String   @default("PRODUTOR") // 'ADMIN' ou 'PRODUTOR'
-  comissao  Float    @default(10)         // % padrão
-  
-  apolices  Policy[] // Vendas deste usuário
-  criadoEm  DateTime @default(now())
+  id           Int           @id @default(autoincrement())
+  nome         String
+  email        String        @unique
+  senha        String   
+  perfil       String        @default("PRODUTOR")
+  comissao     Float         @default(10)
+  apolices     Policy[]
+  appointments Appointment[]
+  criadoEm     DateTime      @default(now())
 }
 
-// --- CLIENTES ---
+// --- CLIENTES (ATUALIZADO COM NOVOS CAMPOS) ---
 model Client {
   id               Int      @id @default(autoincrement())
   nome             String
@@ -44,23 +45,109 @@ model Client {
   cidade           String?
   estado           String?
   
-  // Veículo
+  // AUTO
   renavam            String?
+  placa              String? // Novo
   modelo_veiculo     String?
   ano_veiculo        String?
+  uso_veiculo        String? // Novo
   condutor_principal String?
+  idade_condutor     String? // Novo
   km                 String?
-  guincho            String?
+  
+  // AUTO - Coberturas
+  guincho            String? // km_guincho
   carro_reserva      String?
-  danos_terceiros    String? 
+  danos_terceiros    String? // cobertura_terceiros
+  cobertura_roubo    String? // Novo
+
+  // VIDA (Novos)
+  capital_vida       String?
+  profissao          String?
+  motivo_vida        String?
+
+  // SAÚDE (Novos)
+  preferencia_rede   String?
+  idades_saude       String?
+  plano_saude        String?
+
+  // GERAL
+  obs_final          String?  // Anotações vindas do bot
+  preferences        Json?    
+  questionnaires     Json?    
 
   apolices         Policy[]
   documentos       Document[]
   claims           Claim[]
+  appointments     Appointment[]
   criadoEm         DateTime @default(now())
 }
 
-// --- APÓLICES ---
+// --- LEADS (INTEGRAÇÃO TYPEBOT) ---
+model Lead {
+  id              Int      @id @default(autoincrement())
+  criadoEm        DateTime @default(now())
+  
+  // Status do Funil
+  status          String   @default("NOVO") // NOVO, CONTATADO, COTACAO, VENDA, PERDIDO
+  
+  // Dados de Contato
+  nome            String
+  whatsapp        String
+  tipo_seguro     String?  // Auto, Vida, Saude
+  
+  // Variáveis Específicas do Typebot
+  obs_final          String?
+  capital_vida       String?
+  profissao          String?
+  motivo_vida        String?
+  preferencia_rede   String?
+  idades_saude       String?
+  plano_saude        String?
+  cobertura_roubo    String?
+  cobertura_terceiros String?
+  carro_reserva      String?
+  km_guincho         String?
+  renavan            String?
+  placa              String?
+  ano_do_veiculo     String? // Mapeado para ano_veiculo no Client
+  modelo_veiculo     String?
+  uso_veiculo        String?
+  idade_do_condutor  String? // Mapeado para idade_condutor no Client
+  condutor_principal String?
+  
+  dados_extras    Json? // Para guardar qualquer outra coisa que sobrar
+}
+
+// --- AGENDA ---
+model Appointment {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  date        DateTime
+  type        String   
+  status      String   @default("PENDENTE")
+  clientId    Int?
+  client      Client?  @relation(fields: [clientId], references: [id])
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// --- FINANCEIRO ---
+model FinancialRecord {
+  id          Int      @id @default(autoincrement())
+  type        String   
+  category    String   
+  description String
+  amount      Float
+  dueDate     DateTime 
+  status      String   @default("PENDENTE")
+  paidAt      DateTime? 
+  createdAt   DateTime @default(now())
+}
+
+// --- APÓLICES, DOCUMENTOS, SINISTROS (MANTIDOS) ---
 model Policy {
   id             Int      @id @default(autoincrement())
   numero         String?
@@ -68,15 +155,10 @@ model Policy {
   tipo_seguro    String
   data_inicio    DateTime
   data_fim       DateTime
-  
-  // Financeiro
-  premio_liquido Float?   
-  comissao_total Float?   
-  
-  // Vínculo com Produtor
+  premio_liquido Float?
+  comissao_total Float?
   userId         Int?     
   user           User?    @relation(fields: [userId], references: [id])
-  
   pdf_url        String?  
   pdf_file_id    String?  
   clientId       Int
@@ -84,7 +166,6 @@ model Policy {
   claims         Claim[]
 }
 
-// --- DOCUMENTOS ---
 model Document {
   id        Int      @id @default(autoincrement())
   nome      String
@@ -99,7 +180,6 @@ model Document {
   criadoEm  DateTime @default(now())
 }
 
-// --- SINISTROS ---
 model Claim {
   id             Int      @id @default(autoincrement())
   status         String   @default("ABERTO")
@@ -121,21 +201,4 @@ model Claim {
   policy         Policy?  @relation(fields: [policyId], references: [id])
   documentos     Document[]
   atualizadoEm   DateTime @updatedAt
-}
-
-// --- LEADS ---
-model Lead {
-  id              Int      @id @default(autoincrement())
-  criadoEm        DateTime @default(now())
-  nome            String
-  whatsapp        String
-  email           String?
-  cpf             String?
-  status          String   @default("NOVO")
-  tipo_seguro     String?
-  placa           String?
-  modelo_veiculo  String?
-  ano_veiculo     String?
-  uso_veiculo     String?
-  dados_extras    Json?
 }

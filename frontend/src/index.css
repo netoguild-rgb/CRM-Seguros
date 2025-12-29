@@ -2,60 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Estilo Base */
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #f8fafc; /* Slate-50 */
+  background-color: #f8fafc;
+  color: #1e293b;
+  overflow-x: hidden; /* Evita rolagem lateral indesejada */
 }
 
-/* Animação suave */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+/* --- CORREÇÃO DAS JANELAS (MODAIS) --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0; /* Ocupa toda a tela */
+  z-index: 50;
+  background-color: rgba(0, 0, 0, 0.6); /* Fundo escuro */
+  backdrop-filter: blur(4px); /* Desfoque */
+  display: flex;
+  align-items: center; /* Centraliza verticalmente */
+  justify-content: center; /* Centraliza horizontalmente */
+  padding: 1rem; /* Espaço nas bordas para não colar na tela */
 }
 
-/* Estilo dos Inputs */
+/* Classe para o conteúdo da janela */
+.modal-content {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 32rem; /* Largura padrão */
+  max-height: 90vh; /* Máximo 90% da altura da tela */
+  overflow-y: auto; /* Cria barra de rolagem SE precisar */
+  position: relative; /* Para o botão X funcionar */
+  animation: scaleIn 0.2s ease-out forwards;
+}
+
+/* Animação de Entrada */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Botão Fechar (X) Padronizado */
+.btn-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.5rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  transition: all 0.2s;
+  cursor: pointer;
+  z-index: 10;
+  background-color: #f1f5f9;
+}
+.btn-close:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+/* Inputs e Botões */
 .input-field {
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
   border: 1px solid #e2e8f0;
-  outline: none;
-  transition: all 0.2s;
-  font-size: 0.95rem;
-  color: #1e293b;
   background-color: #fff;
+  outline: none;
+  font-size: 0.95rem;
+  transition: all 0.2s;
 }
 .input-field:focus {
   border-color: #f97316;
-  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
 }
 
-/* Botão Padrão */
 .btn-primary {
   background-color: #f97316;
   color: white;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem;
   border-radius: 0.75rem;
   font-weight: bold;
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 0.5rem;
-  transition: background-color 0.2s;
+  transition: background 0.2s;
 }
-.btn-primary:hover {
-  background-color: #ea580c;
-}
+.btn-primary:hover { background-color: #ea580c; }
 
-/* Labels */
-.label-text {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #64748b;
-  margin-bottom: 0.25rem;
-  display: block;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
+/* Scrollbar Personalizada */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
