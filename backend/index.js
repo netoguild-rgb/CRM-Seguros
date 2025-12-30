@@ -1,3 +1,4 @@
+require('dotenv').config(); // LINHA ADICIONADA: Carrega variáveis do .env
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
