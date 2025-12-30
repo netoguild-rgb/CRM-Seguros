@@ -5,14 +5,14 @@ import {
   LayoutDashboard, Users, FileText, Settings, Plus, Search, 
   Bot, AlertTriangle, Download, X, Folder, Mail, HardDrive, Upload, 
   AlertOctagon, Calendar as CalendarIcon, Clock, DollarSign, UserPlus, 
-  LayoutKanban, List, MoreHorizontal, Phone, ArrowRight, CheckCircle, LogOut
+  Columns, List, MoreHorizontal, Phone, ArrowRight, CheckCircle, LogOut
 } from 'lucide-react';
 import { 
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement 
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 
-// 1. REGISTO DOS GRÁFICOS (Essencial)
+// 1. REGISTO DOS GRÁFICOS
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
 
 const API_URL = window.location.hostname === 'localhost' 
@@ -23,14 +23,13 @@ const api = axios.create({ baseURL: API_URL });
 // --- UTILS ---
 const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
-// --- 2. COMPONENTE DE PROTEÇÃO (ERROR BOUNDARY) ---
-// Se o gráfico falhar, mostra um aviso em vez de travar o site (Tela Branca)
+// --- ERROR BOUNDARY ---
 class ChartErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError(error) { return { hasError: true }; }
   componentDidCatch(error, errorInfo) { console.error("Erro no Gráfico:", error); }
   render() {
-    if (this.state.hasError) return <div className="flex items-center justify-center h-full bg-slate-50 text-slate-400 text-xs rounded-lg border border-dashed border-slate-200">Gráfico indisponível</div>;
+    if (this.state.hasError) return <div className="flex items-center justify-center h-full bg-slate-50 text-slate-400 text-xs border border-dashed">Gráfico Indisponível</div>;
     return this.props.children;
   }
 }
@@ -86,19 +85,15 @@ const Dashboard = () => {
     const [error, setError] = useState(false);
 
     useEffect(() => { 
-        const fetchData = async () => {
-            try {
-                const res = await api.get('/dashboard-stats');
-                setData(res.data);
-            } catch(e) { setError(true); } finally { setLoading(false); }
+        const f = async () => {
+            try { const r = await api.get('/dashboard-stats'); setData(r.data); } 
+            catch(e) { setError(true); } finally { setLoading(false); }
         };
-        fetchData();
+        f();
     }, []); 
 
     if(loading) return <div className="flex justify-center items-center h-full gap-2 text-slate-500"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500"></div> Carregando...</div>;
-    
-    // Tratamento de Erro de Conexão
-    if(error || !data) return <div className="flex flex-col items-center justify-center h-full text-slate-400"><AlertTriangle size={48} className="mb-2 opacity-50"/><p>Erro de conexão. Verifique se o Backend está ligado.</p></div>;
+    if(error || !data) return <div className="flex flex-col items-center justify-center h-full text-slate-400"><AlertTriangle size={48} className="mb-2 opacity-50"/><p>Sem conexão com o servidor.</p></div>;
 
     const leadsByStatus = data.charts?.leadsByStatus || [];
     const funnelData = {
@@ -119,13 +114,8 @@ const Dashboard = () => {
                 {[{t:'Clientes',v:data.kpi?.totalClients,i:Users,c:'text-blue-600',bg:'bg-blue-50'},{t:'Apólices',v:data.kpi?.activePolicies,i:FileText,c:'text-emerald-600',bg:'bg-emerald-50'},{t:'Leads',v:data.kpi?.newLeads,i:Bot,c:'text-purple-600',bg:'bg-purple-50'},{t:'Receita',v:formatCurrency(data.kpi?.monthlyRevenue),i:DollarSign,c:'text-orange-600',bg:'bg-orange-50'}].map((x,i)=>(<div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all"><div><p className="text-xs text-slate-500 font-bold uppercase tracking-wider">{x.t}</p><h3 className="text-2xl font-bold text-slate-800 mt-1">{x.v}</h3></div><div className={`p-3 rounded-xl ${x.bg} ${x.c}`}><x.i size={24}/></div></div>))} 
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-8 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><h3 className="font-bold text-lg text-slate-800 mb-6">Desempenho Financeiro</h3><div className="h-64 w-full">
-                    {/* 3. USO DO ERROR BOUNDARY NOS GRÁFICOS */}
-                    <ChartErrorBoundary><Line data={revenueData} options={{maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{borderDash:[4,4]}},x:{grid:{display:false}}}}} /></ChartErrorBoundary>
-                </div></div>
-                <div className="lg:col-span-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><h3 className="font-bold text-lg text-slate-800 mb-6">Funil de Leads</h3><div className="h-64 w-full">
-                    <ChartErrorBoundary><Bar data={funnelData} options={{maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}}}} /></ChartErrorBoundary>
-                </div></div>
+                <div className="lg:col-span-8 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><h3 className="font-bold text-lg text-slate-800 mb-6">Desempenho Financeiro</h3><div className="h-64 w-full"><ChartErrorBoundary><Line data={revenueData} options={{maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{borderDash:[4,4]}},x:{grid:{display:false}}}}} /></ChartErrorBoundary></div></div>
+                <div className="lg:col-span-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><h3 className="font-bold text-lg text-slate-800 mb-6">Funil de Leads</h3><div className="h-64 w-full"><ChartErrorBoundary><Bar data={funnelData} options={{maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}}}} /></ChartErrorBoundary></div></div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><CalendarIcon size={18} className="text-orange-500"/> Agenda Próxima</h3><div className="space-y-3">{data.lists?.upcomingAgenda?.map(a=>(<div key={a.id} className="flex gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-orange-50 transition-colors"><div className="w-1 bg-orange-500 rounded-full"></div><div><h4 className="text-sm font-bold">{a.title}</h4><p className="text-xs text-slate-500">{new Date(a.date).toLocaleString('pt-BR')} • {a.client?.nome}</p></div></div>))}</div></div>
@@ -146,32 +136,9 @@ const Leads = () => {
 
     useEffect(() => { loadLeads(); }, []);
     const loadLeads = async () => { try { const r = await api.get('/leads'); setLeads(r.data); } catch(e){} };
-    
-    const updateStatus = async (id, status) => { 
-        setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l)); 
-        await api.put(`/leads/${id}`, { status }); 
-        loadLeads(); 
-    };
-    
-    const handleConvert = (lead) => {
-        setClientForm({
-            nome: lead.nome, whatsapp: lead.whatsapp, email: '', tipo: 'PF', obs_final: lead.obs_final,
-            modelo_veiculo: lead.modelo_veiculo, renavam: lead.renavan, placa: lead.placa, 
-            ano_veiculo: lead.ano_do_veiculo, uso_veiculo: lead.uso_veiculo, 
-            condutor_principal: lead.condutor_principal, idade_condutor: lead.idade_do_condutor,
-            km: lead.km_guincho, guincho: lead.km_guincho, 
-            carro_reserva: lead.carro_reserva, danos_terceiros: lead.cobertura_terceiros, cobertura_roubo: lead.cobertura_roubo,
-            capital_vida: lead.capital_vida, profissao: lead.profissao, motivo_vida: lead.motivo_vida,
-            preferencia_rede: lead.preferencia_rede, idades_saude: lead.idades_saude, plano_saude: lead.plano_saude
-        });
-        setIsConvertModalOpen(true);
-    };
-
-    const confirmConversion = async (e) => {
-        e.preventDefault(); await api.post('/clients', clientForm); await api.put(`/leads/${selectedLead.id}`, { status: 'VENDA' });
-        alert("Lead promovido!"); setIsConvertModalOpen(false); setSelectedLead(null); loadLeads();
-    };
-
+    const updateStatus = async (id, status) => { setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l)); await api.put(`/leads/${id}`, { status }); loadLeads(); };
+    const handleConvert = (lead) => { setClientForm({ nome: lead.nome, whatsapp: lead.whatsapp, email: '', tipo: 'PF', obs_final: lead.obs_final, modelo_veiculo: lead.modelo_veiculo, renavam: lead.renavan, placa: lead.placa, ano_veiculo: lead.ano_do_veiculo, uso_veiculo: lead.uso_veiculo, condutor_principal: lead.condutor_principal, idade_condutor: lead.idade_do_condutor, km: lead.km_guincho, guincho: lead.km_guincho, carro_reserva: lead.carro_reserva, danos_terceiros: lead.cobertura_terceiros, cobertura_roubo: lead.cobertura_roubo, capital_vida: lead.capital_vida, profissao: lead.profissao, motivo_vida: lead.motivo_vida, preferencia_rede: lead.preferencia_rede, idades_saude: lead.idades_saude, plano_saude: lead.plano_saude }); setIsConvertModalOpen(true); };
+    const confirmConversion = async (e) => { e.preventDefault(); await api.post('/clients', clientForm); await api.put(`/leads/${selectedLead.id}`, { status: 'VENDA' }); alert("Lead promovido!"); setIsConvertModalOpen(false); setSelectedLead(null); loadLeads(); };
     const filteredLeads = leads.filter(l => l.nome.toLowerCase().includes(search.toLowerCase()) || l.whatsapp.includes(search));
     const stages = [{ id: 'NOVO', label: 'Novos', color: 'border-blue-500' }, { id: 'CONTATADO', label: 'Contatados', color: 'border-yellow-500' }, { id: 'COTACAO', label: 'Em Cotação', color: 'border-purple-500' }, { id: 'VENDA', label: 'Fechados', color: 'border-emerald-500' }, { id: 'PERDIDO', label: 'Perdidos', color: 'border-gray-300' }];
 
@@ -180,7 +147,8 @@ const Leads = () => {
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm shrink-0">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Bot className="text-orange-500"/> Pipeline de Leads</h2>
                 <div className="flex gap-2 w-full md:w-auto">
-                    <div className="bg-slate-100 p-1 rounded-lg flex items-center mr-2"><button onClick={()=>setViewMode('TABLE')} className={`p-2 rounded-md transition-all ${viewMode==='TABLE'?'bg-white shadow-sm text-orange-500':'text-slate-400'}`}><List size={20}/></button><button onClick={()=>setViewMode('KANBAN')} className={`p-2 rounded-md transition-all ${viewMode==='KANBAN'?'bg-white shadow-sm text-orange-500':'text-slate-400'}`}><LayoutKanban size={20}/></button></div>
+                    {/* AQUI ESTÁ A MUDANÇA: 'Columns' no lugar de 'LayoutKanban' */}
+                    <div className="bg-slate-100 p-1 rounded-lg flex items-center mr-2"><button onClick={()=>setViewMode('TABLE')} className={`p-2 rounded-md transition-all ${viewMode==='TABLE'?'bg-white shadow-sm text-orange-500':'text-slate-400'}`}><List size={20}/></button><button onClick={()=>setViewMode('KANBAN')} className={`p-2 rounded-md transition-all ${viewMode==='KANBAN'?'bg-white shadow-sm text-orange-500':'text-slate-400'}`}><Columns size={20}/></button></div>
                     <div className="relative w-64"><Search className="absolute left-3 top-2.5 text-slate-400" size={18}/><input className="pl-10 input-field" placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
                 </div>
             </div>
@@ -192,6 +160,7 @@ const Leads = () => {
     );
 };
 
+// --- OUTROS MÓDULOS (AGENDA, FINANCEIRO, ETC) ---
 const Agenda = () => {
     const [appointments, setAppointments] = useState([]);
     const [clients, setClients] = useState([]);
